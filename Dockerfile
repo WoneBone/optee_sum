@@ -67,8 +67,8 @@ COPY 2021.1-zcu104-release.tar.xz 2021.1-zcu104-release.tar.xz
 WORKDIR /optee/build
 RUN make -j3 toolchains
 
-RUN make -j$(nproc) PLATFORM=zynqmp-zcu104 all
-RUN make -j$(nproc) PLATFORM=zynqmp-zcu104 image
+RUN make -j$(nproc) PLATFORM=zynqmp-zcu104 CFG_TA_GPROF_SUPPORT=y all 
+RUN make -j$(nproc) PLATFORM=zynqmp-zcu104 CFG_TA_GPROF_SUPPORT=y image
 
 # Keep the container alive
 CMD ["tail", "-f", "/dev/null"]
