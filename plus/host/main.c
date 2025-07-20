@@ -27,9 +27,12 @@
 
 /* Modified by Nuno Abreu */
 
+#include <bits/time.h>
 #include <err.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 /* OP-TEE TEE client API (built by optee_client) */
 #include <tee_client_api.h>
@@ -46,8 +49,35 @@ int main(void)
 	TEEC_UUID uuid = PLUS_TA_UUID;
 	uint32_t err_origin;
 
+	struct timespec start, end;
+	uint32_t a[5]={23022836,	20937265,	40361239,	15048813,	13871094}, b[5] = {35134569,	24628574,	42511344,	19978249,	7588309}, c[5]={0};
+
+	printf("NW opperations:\n");
+	fflush(stdout);
+
+	clock_gettime(CLOCK_MONOTONIC, &start);
+	
+	for(int i = 0; i < 5; i++) c[i] = a[i] + b[i];
+
+	clock_gettime(CLOCK_MONOTONIC, &end);
+
+	printf("NW finished execussion in %f ns\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_sec)/1000000000.0);
+	fflush(stdout);
+	
+	for(int i = 0; i < 5; i++) printf("c[%d] = %d\t",i, c[i]);
+	printf("\n");
+	fflush(stdout);
+
+
+
+
+	
+
 	/* Initialize a context connecting us to the TEE */
-	printf("[DBG]\tInitalizing\n");
+	printf("Initializing TEE\n");
+	fflush(stdout);
+	clock_gettime(CLOCK_MONOTONIC, &start);
+
 	res = TEEC_InitializeContext(NULL, &ctx);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InitializeContext failed with code 0x%x", res);
@@ -56,12 +86,15 @@ int main(void)
 	 * Open a session to the "hello world" TA, the TA will print "hello
 	 * world!" in the log when the session is created.
 	 */
-	printf("[DBG]\tStarting Sesh\n");
 	res = TEEC_OpenSession(&ctx, &sess, &uuid,
 			       TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
 			res, err_origin);
+
+	clock_gettime(CLOCK_MONOTONIC, &end);
+	printf("Initialization of context finished in %f ns\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_sec)/1000000000.0);
+	fflush(stdout);
 
 	/*
 	 * Execute a function in the TA by invoking it, in this case
@@ -70,31 +103,47 @@ int main(void)
 	 * The value of command ID part and how the parameters are
 	 * interpreted is part of the interface provided by the TA.
 	 */
+	
+	printf("TA opperations:\n");
+	fflush(stdout);
+	clock_gettime(CLOCK_MONOTONIC, &start);
+	for(int i = 0; i < 5; i++){
 
-	/* Clear the TEEC_Operation struct */
-	memset(&op, 0, sizeof(op));
+		/* Clear the TEEC_Operation struct */
+		memset(&op, 0, sizeof(op));
 
-	/*
-	 * Prepare the argument. Pass a value in the first parameter,
-	 * the remaining three parameters are unused.
-	 */
-	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT,
-					 TEEC_NONE, TEEC_NONE);
-	op.params[0].value.a = 42;
-	op.params[0].value.b = 0x45;
+		/*
+		 * Prepare the argument. Pass a value in the first parameter,
+		 * the remaining three parameters are unused.
+		 */
+		op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT,
+						 TEEC_NONE, TEEC_NONE);
+		op.params[0].value.a = a[i];
+		op.params[0].value.b = b[i];
 
-	/*
-	 * TA_HELLO_WORLD_CMD_INC_VALUE is the actual function in the TA to be
-	 * called.
-	 */
-	printf("Invoking TA to sum  %d and %d \n", op.params[0].value.a, op.params[0].value.b);
-	res = TEEC_InvokeCommand(&sess, TA_SUM_CMD, &op,
-				 &err_origin);
-	if (res != TEEC_SUCCESS)
-		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
-			res, err_origin);
-	printf("TA incremented value to %d\n", op.params[1].value.a);
+		/*
+		 * TA_HELLO_WORLD_CMD_INC_VALUE is the actual function in the TA to be
+		 * called.
+		 */
+		//printf("Invoking TA to sum  %d and %d \n", op.params[0].value.a, op.params[0].value.b);
+		res = TEEC_InvokeCommand(&sess, TA_SUM_CMD, &op,
+					 &err_origin);
+		if (res != TEEC_SUCCESS)
+			errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
+				res, err_origin);
 
+		c[i] = op.params[1].value.a;
+		//printf("TA incremented value to %d\n", op.params[1].value.a);
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &end);
+
+	printf("TA finished execussion in %f ns\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_sec)/1000000000.0);
+	fflush(stdout);
+	
+	for(int i = 0; i < 5; i++) printf("c[%d] = %d\t",i, c[i]);
+	printf("\n");
+	fflush(stdout);
 	/*
 	 * We're done with the TA, close the session and
 	 * destroy the context.

@@ -8,7 +8,7 @@ READELF ?= $(CROSS_COMPILE)readelf
 
 OBJS = main.o
 
-CFLAGS += -Wall -I../ta/include -I/optee/out-br/build/optee_client_ext-1.0/libteec/include -I./include
+CFLAGS += -Wall -I../ta/include -I/optee/out-br/build/optee_client_ext-1.0/libteec/include -I./include #-pg -O0
 
 #Add/link other required libraries here
 LDADD += -lteec -L/optee/out-br/build/optee_client_ext-1.0/libteec
