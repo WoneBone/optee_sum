@@ -101,29 +101,28 @@ void TA_CloseSessionEntryPoint(void __maybe_unused *sess_ctx)
 
 
 static TEE_Result fib_mod(uint32_t param_types,
-	TEE_Param params)
+	TEE_Param params[2])
 {
 	uint32_t N, k;
-	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
-						   TEE_PARAM_TYPE_VALUE_OUTPUT,
-						   TEE_PARAM_TYPE_NONE,
-						   TEE_PARAM_TYPE_NONE);
+	uint32_t exp_param_types = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT,
+						 TEEC_NONE, TEEC_NONE);
 
 	if (param_types != exp_param_types)
 		return TEE_ERROR_BAD_PARAMETERS;
 	//Interpret parameters as float
-	a = params[0].value.a);
-	b = params[0].value.b);
+	N = params[0].value.a;
+	k = params[0].value.b;
 
-	uint32_t k1=1, k2=1;
+	uint32_t k1=1, k2=1, aux;
 
-	for (i=2; i<N; i++){
+
+	for (int i=2; i<N; i++){
 		aux=k1+k2;
 		k1=k2;
 		k2=aux % k;
 	}
 
-	params[2].value.a = k2;
+	params[1].value.a = k2;
 
 	return TEE_SUCCESS;
 }

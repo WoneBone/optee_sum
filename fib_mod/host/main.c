@@ -31,7 +31,6 @@
 #include <err.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <time.h>
 #include <stdlib.h>
 
@@ -39,17 +38,19 @@
 #include <tee_client_api.h>
 
 /* For the UUID (found in the TA's h-file(s)) */
-#include <plus_ta.h>
+#include <fib_mod_ta.h>
 
-union value {
-	uint32_t	i;
-	float		f;
-};
 
-float MAAC(volatile union value a, volatile union value b, volatile union value c){
-	return a.f * b.f + c.f;
+uint32_t fib_mod(uint32_t N, uint32_t k){
+
+	uint32_t k1=1, k2=1, aux;
+
+	for (int i=2; i<N; i++){
+		aux=k1+k2;
+		k1=k2;
+		k2=aux % k;
+	}
 }
-
 
 int main(void)
 {
@@ -61,34 +62,23 @@ int main(void)
 	uint32_t err_origin;
 
 	struct timespec start, end;
-	volatile union value  a[100000], b[100000], c[100000], d_nw[100000], d_sw[100000];
+	uint32_t k = 105;
 
-	for(int i = 0; i < 100000; i++){
-		a[i].i = random() << 1;
-		b[i].i = random() << 1;
-		c[i].i = random() << 1;
-	}
 
 	printf("NW opperations:\n");
 	fflush(stdout);
+	uint32_t N = 100;
+	for(int i = 1; i < 10; i++){
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		
+		fib_mod(N, k)
 
-	clock_gettime(CLOCK_MONOTONIC, &start);
-	
-	for(int i = 0; i < 100000; i++) d_nw[i].f = MAAC(a[i], b[i], c[i]);
+		clock_gettime(CLOCK_MONOTONIC, &end);
 
-	clock_gettime(CLOCK_MONOTONIC, &end);
-
-	printf("NW finished execussion in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-	fflush(stdout);
-	
-// for(int i = 0; i < 5; i++) printf("c[%d] = %d\t",i, c[i]);
-// printf("\n");
-// fflush(stdout);
-
-
-
-
-	
+		printf("NW finished execussion in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+		fflush(stdout);
+		N*=10;
+	}
 
 	/* Initialize a context connecting us to the TEE */
 	printf("Initializing TEE\n");
@@ -123,8 +113,10 @@ int main(void)
 	
 	printf("TA opperations:\n");
 	fflush(stdout);
-	clock_gettime(CLOCK_MONOTONIC, &start);
-	for(int i = 0; i < 100000; i++){
+
+	uint32_t N = 100;
+	for(int i = 10; i < 10; i++){
+		clock_gettime(CLOCK_MONOTONIC, &start);
 
 		/* Clear the TEEC_Operation struct */
 		memset(&op, 0, sizeof(op));
@@ -134,30 +126,24 @@ int main(void)
 		 * the remaining three parameters are unused.
 		 */
 		op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_INPUT,
-						 TEEC_VALUE_OUTPUT, TEEC_NONE);
-		op.params[0].value.a = a[i].i;
-		op.params[0].value.b = b[i].i;
-		op.params[1].value.a = c[i].i;
+								   TEEC_VALUE_OUTPUT, TEEC_NONE);
+		op.params[0].value.a = N;
+		op.params[0].value.b = k;
 
 		//printf("Invoking TA to sum  %d and %d \n", op.params[0].value.a, op.params[0].value.b);
-		res = TEEC_InvokeCommand(&sess, TA_MAC_CMD, &op,
-					 &err_origin);
+		res = TEEC_InvokeCommand(&sess, FIB_MOD_CMD, &op,
+						   &err_origin);
 		if (res != TEEC_SUCCESS)
 			errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
-				res, err_origin);
+		res, err_origin);
 
-		d_sw[i].i = op.params[2].value.a;
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		printf("TA finished execussion in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+		fflush(stdout);
 		//printf("TA incremented value to %d\n", op.params[1].value.a);
 	}
 
-	clock_gettime(CLOCK_MONOTONIC, &end);
-
-	printf("TA finished execussion in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-	fflush(stdout);
 	
-	//for(int i = 0; i < 10; i++) printf("d_nw[%d] = %f\td_sw[%d] = %f\n",i, d_nw[i].f, i, d_sw[i].f);
-	printf("\n");
-	fflush(stdout);
 	/*
 	 * We're done with the TA, close the session and
 	 * destroy the context.
