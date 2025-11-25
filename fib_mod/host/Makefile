@@ -8,12 +8,12 @@ READELF ?= $(CROSS_COMPILE)readelf
 
 OBJS = main.o
 
-CFLAGS += -Wall -I../ta/include -I/optee/out-br/build/optee_client_ext-1.0/libteec/include -I./include -O0 -fno-unroll-loops -fno-inline -fno-strict-aliasing -fno-tree-vectorize
+CFLAGS += -Wall -I../ta/include -I/optee/out-br/build/optee_client_ext-1.0/libteec/include -I./include -O2
 
 #Add/link other required libraries here
 LDADD += -lteec -L/optee/out-br/build/optee_client_ext-1.0/libteec
 
-BINARY = sum_ta_example
+BINARY = fib_mod_ta
 
 .PHONY: all
 all: $(BINARY)
