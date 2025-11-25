@@ -28,6 +28,8 @@
 /* Modified by Nuno Abreu */
 
 
+#include "include/plus_ta.h"
+#include <stdint.h>
 #include <tee_internal_api.h>
 #include <tee_internal_api_extensions.h>
 
@@ -117,6 +119,31 @@ static TEE_Result sum_AB(uint32_t param_types,
 	return TEE_SUCCESS;
 }
 
+static TEE_Result MACC(uint32_t param_types,
+	TEE_Param params[4])
+{
+	float a, b, c, d;
+	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
+						   TEE_PARAM_TYPE_VALUE_INPUT,
+						   TEE_PARAM_TYPE_VALUE_OUTPUT,
+						   TEE_PARAM_TYPE_NONE);
+
+	DMSG("has been called");
+
+	if (param_types != exp_param_types)
+		return TEE_ERROR_BAD_PARAMETERS;
+	//Interpret parameters as float
+	a = *((float *)&params[0].value.a);
+	b = *((float *)&params[0].value.b);
+	c = *((float *)&params[1].value.a);
+
+	d = a * b + c;
+
+	params[2].value.a = *((uint32_t *) &d);
+
+	return TEE_SUCCESS;
+}
+
 /*
  * Called when a TA is invoked. sess_ctx hold that value that was
  * assigned by TA_OpenSessionEntryPoint(). The rest of the paramters
@@ -131,6 +158,9 @@ TEE_Result TA_InvokeCommandEntryPoint(void __maybe_unused *sess_ctx,
 	switch (cmd_id) {
 	case TA_SUM_CMD:
 		return sum_AB(param_types, params);
+		break;
+	case TA_MAC_CMD:
+		return MACC(param_types, params);
 	default:
 		return TEE_ERROR_BAD_PARAMETERS;
 	}
