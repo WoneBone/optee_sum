@@ -31,6 +31,7 @@
 #include <err.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <stdlib.h>
 
@@ -45,11 +46,12 @@ uint32_t fib_mod(uint32_t N, uint32_t k){
 
 	uint32_t k1=1, k2=1, aux;
 
-	for (int i=2; i<N; i++){
+	for (uint32_t i=2; i<N; i++){
 		aux=k1+k2;
 		k1=k2;
 		k2=aux % k;
 	}
+	return k2;
 }
 
 int main(void)
@@ -58,20 +60,22 @@ int main(void)
 	TEEC_Context ctx;
 	TEEC_Session sess;
 	TEEC_Operation op;
-	TEEC_UUID uuid = PLUS_TA_UUID;
+	TEEC_UUID uuid = FIB_MOD_TA_UUID;
 	uint32_t err_origin;
 
 	struct timespec start, end;
 	uint32_t k = 105;
+	volatile uint32_t r;
 
-
+	
 	printf("NW opperations:\n");
 	fflush(stdout);
+
 	uint32_t N = 100;
 	for(int i = 1; i < 10; i++){
 		clock_gettime(CLOCK_MONOTONIC, &start);
 		
-		fib_mod(N, k)
+		r = fib_mod(N, k);
 
 		clock_gettime(CLOCK_MONOTONIC, &end);
 
@@ -114,8 +118,8 @@ int main(void)
 	printf("TA opperations:\n");
 	fflush(stdout);
 
-	uint32_t N = 100;
-	for(int i = 10; i < 10; i++){
+	N = 100;
+	for(int i = 1; i < 10; i++){
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
 		/* Clear the TEEC_Operation struct */
@@ -125,22 +129,28 @@ int main(void)
 		 * Prepare the argument. Pass a value in the first parameter,
 		 * the remaining three parameters are unused.
 		 */
-		op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_INPUT,
-								   TEEC_VALUE_OUTPUT, TEEC_NONE);
+		op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT,
+								   TEEC_NONE, TEEC_NONE);
 		op.params[0].value.a = N;
 		op.params[0].value.b = k;
 
 		//printf("Invoking TA to sum  %d and %d \n", op.params[0].value.a, op.params[0].value.b);
 		res = TEEC_InvokeCommand(&sess, FIB_MOD_CMD, &op,
 						   &err_origin);
-		if (res != TEEC_SUCCESS)
+		if (res != TEEC_SUCCESS){
+			printf("\n\n[PANIC]\n\n\n");
+			fflush(stdout);
 			errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
 		res, err_origin);
+		}
+
+		r = op.params[1].value.a;
 
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		printf("TA finished execussion in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
 		fflush(stdout);
-		//printf("TA incremented value to %d\n", op.params[1].value.a);
+
+		N*=10;
 	}
 
 	

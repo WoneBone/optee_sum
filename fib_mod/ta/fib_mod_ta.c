@@ -101,11 +101,13 @@ void TA_CloseSessionEntryPoint(void __maybe_unused *sess_ctx)
 
 
 static TEE_Result fib_mod(uint32_t param_types,
-	TEE_Param params[2])
+	TEE_Param params[4])
 {
 	uint32_t N, k;
-	uint32_t exp_param_types = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT,
-						 TEEC_NONE, TEEC_NONE);
+	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
+						   TEE_PARAM_TYPE_VALUE_OUTPUT,
+						   TEE_PARAM_TYPE_NONE,
+						   TEE_PARAM_TYPE_NONE);
 
 	if (param_types != exp_param_types)
 		return TEE_ERROR_BAD_PARAMETERS;
@@ -116,7 +118,7 @@ static TEE_Result fib_mod(uint32_t param_types,
 	uint32_t k1=1, k2=1, aux;
 
 
-	for (int i=2; i<N; i++){
+	for (uint32_t i=2; i<N; i++){
 		aux=k1+k2;
 		k1=k2;
 		k2=aux % k;

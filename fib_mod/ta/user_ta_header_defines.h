@@ -1,7 +1,7 @@
 #ifndef USER_TA_HEADER_DEFINES_H
 #define USER_TA_HEADER_DEFINES_H
 
-#include <plus_ta.h>
+#include <fib_mod_ta.h>
 
 #define TA_UUID FIB_MOD_TA_UUID
 
