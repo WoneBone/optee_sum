@@ -28,12 +28,12 @@
 /* Modified by Nuno Abreu */
 
 
-#include "include/plus_ta.h"
+#include "include/fib_mod_ta.h"
 #include <stdint.h>
 #include <tee_internal_api.h>
 #include <tee_internal_api_extensions.h>
 
-#include <plus_ta.h>
+#include <fib_mod_ta.h>
 
 /*
  * Called when the instance of the TA is created. This is the first call in
@@ -99,47 +99,31 @@ void TA_CloseSessionEntryPoint(void __maybe_unused *sess_ctx)
 	IMSG("Goodbye!\n");
 }
 
-static TEE_Result sum_AB(uint32_t param_types,
-	TEE_Param params[4])
+
+static TEE_Result fib_mod(uint32_t param_types,
+	TEE_Param params)
 {
+	uint32_t N, k;
 	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
 						   TEE_PARAM_TYPE_VALUE_OUTPUT,
 						   TEE_PARAM_TYPE_NONE,
 						   TEE_PARAM_TYPE_NONE);
 
-	DMSG("has been called");
-
-	if (param_types != exp_param_types)
-		return TEE_ERROR_BAD_PARAMETERS;
-
-	IMSG("Got value: %u and %u from NW", params[0].value.a, params[0].value.b);
-	params[1].value.a = params[0].value.a + params[0].value.b;
-	IMSG("Sum result: %u", params[1].value.a);
-
-	return TEE_SUCCESS;
-}
-
-static TEE_Result MACC(uint32_t param_types,
-	TEE_Param params[4])
-{
-	float a, b, c, d;
-	uint32_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_VALUE_INPUT,
-						   TEE_PARAM_TYPE_VALUE_INPUT,
-						   TEE_PARAM_TYPE_VALUE_OUTPUT,
-						   TEE_PARAM_TYPE_NONE);
-
-	DMSG("has been called");
-
 	if (param_types != exp_param_types)
 		return TEE_ERROR_BAD_PARAMETERS;
 	//Interpret parameters as float
-	a = *((float *)&params[0].value.a);
-	b = *((float *)&params[0].value.b);
-	c = *((float *)&params[1].value.a);
+	a = params[0].value.a);
+	b = params[0].value.b);
 
-	d = a * b + c;
+	uint32_t k1=1, k2=1;
 
-	params[2].value.a = *((uint32_t *) &d);
+	for (i=2; i<N; i++){
+		aux=k1+k2;
+		k1=k2;
+		k2=aux % k;
+	}
+
+	params[2].value.a = k2;
 
 	return TEE_SUCCESS;
 }
@@ -156,11 +140,8 @@ TEE_Result TA_InvokeCommandEntryPoint(void __maybe_unused *sess_ctx,
 	(void)&sess_ctx; /* Unused parameter */
 
 	switch (cmd_id) {
-	case TA_SUM_CMD:
-		return sum_AB(param_types, params);
-		break;
-	case TA_MAC_CMD:
-		return MACC(param_types, params);
+	case FIB_MOD_CMD:
+		return fib_mod(param_types, params);
 	default:
 		return TEE_ERROR_BAD_PARAMETERS;
 	}

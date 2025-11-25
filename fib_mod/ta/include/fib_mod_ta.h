@@ -5,8 +5,7 @@
 #define FIB_MOD_TA_UUID { 0x740200f5, 0x0230, 0x4a84, \
                 { 0xae, 0x6f, 0xcf, 0x87, 0xff, 0x7c, 0x3c, 0x32} }
 
-#define TA_SUM_CMD 0
-#define TA_MAC_CMD 1
+#define FIB_MOD_CMD 0
 
 
 #endif

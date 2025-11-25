@@ -3,7 +3,7 @@
 
 #include <plus_ta.h>
 
-#define TA_UUID PLUS_TA_UUID
+#define TA_UUID FIB_MOD_TA_UUID
 
 /*
  * TA properties: multi-instance TA, no specific attribute
@@ -21,7 +21,7 @@
 #define TA_VERSION	"1.0"
 
 /* The gpd.ta.description property */
-#define TA_DESCRIPTION	"Example of an OP_TEE Sum TA"
+#define TA_DESCRIPTION	"Fibonachi mod TA"
 
 
 #endif
