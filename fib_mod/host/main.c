@@ -65,24 +65,8 @@ int main(void)
 
 	struct timespec start, end;
 	uint32_t k = 105;
-	volatile uint32_t r;
+	uint32_t r1, r2;
 
-	
-	printf("NW opperations:\n");
-	fflush(stdout);
-
-	uint32_t N = 100;
-	for(int i = 1; i < 10; i++){
-		clock_gettime(CLOCK_MONOTONIC, &start);
-		
-		r = fib_mod(N, k);
-
-		clock_gettime(CLOCK_MONOTONIC, &end);
-
-		printf("NW finished execussion in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-		fflush(stdout);
-		N*=10;
-	}
 
 	/* Initialize a context connecting us to the TEE */
 	printf("Initializing TEE\n");
@@ -98,62 +82,55 @@ int main(void)
 	 * world!" in the log when the session is created.
 	 */
 	res = TEEC_OpenSession(&ctx, &sess, &uuid,
-			       TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
+						TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
-			res, err_origin);
+	   res, err_origin);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	printf("Initialization of context finished in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
 	fflush(stdout);
 
-	/*
-	 * Execute a function in the TA by invoking it, in this case
-	 * we're incrementing a number.
-	 *
-	 * The value of command ID part and how the parameters are
-	 * interpreted is part of the interface provided by the TA.
-	 */
-	
-	printf("TA opperations:\n");
-	fflush(stdout);
 
-	N = 100;
-	for(int i = 1; i < 10; i++){
-		clock_gettime(CLOCK_MONOTONIC, &start);
+	for(uint32_t N = 100, i = 0; i < 8; N *= 10, i++){
+		printf("\n# N = %d\n", N);
+		for(int j = 0; j < 3; j++){
 
-		/* Clear the TEEC_Operation struct */
-		memset(&op, 0, sizeof(op));
+			clock_gettime(CLOCK_MONOTONIC, &start);
+				r1 = fib_mod(N, k);
+			clock_gettime(CLOCK_MONOTONIC, &end);
 
-		/*
-		 * Prepare the argument. Pass a value in the first parameter,
-		 * the remaining three parameters are unused.
-		 */
-		op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT,
-								   TEEC_NONE, TEEC_NONE);
-		op.params[0].value.a = N;
-		op.params[0].value.b = k;
-
-		//printf("Invoking TA to sum  %d and %d \n", op.params[0].value.a, op.params[0].value.b);
-		res = TEEC_InvokeCommand(&sess, FIB_MOD_CMD, &op,
-						   &err_origin);
-		if (res != TEEC_SUCCESS){
-			printf("\n\n[PANIC]\n\n\n");
+			printf("NW finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
 			fflush(stdout);
-			errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
-		res, err_origin);
+
+			clock_gettime(CLOCK_MONOTONIC, &start);
+
+				/* Clear the TEEC_Operation struct */
+				memset(&op, 0, sizeof(op));
+
+				op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT, TEEC_NONE, TEEC_NONE);
+				op.params[0].value.a = N;
+				op.params[0].value.b = k;
+
+				res = TEEC_InvokeCommand(&sess, FIB_MOD_CMD, &op, &err_origin);
+
+				if (res != TEEC_SUCCESS){
+					printf("\n\n[PANIC]\n\n\n");
+					fflush(stdout);
+					errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x", res, err_origin);
+				}
+
+				r2 = op.params[1].value.a;
+
+			clock_gettime(CLOCK_MONOTONIC, &end);
+			printf("TA finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+			if(r1 != r2) printf("Functions returned different values\n\
+								r1 = %d\n\
+								r2 = %d\n", r1, r2);
+			fflush(stdout);
 		}
-
-		r = op.params[1].value.a;
-
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		printf("TA finished execussion in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-		fflush(stdout);
-
-		N*=10;
 	}
 
-	
 	/*
 	 * We're done with the TA, close the session and
 	 * destroy the context.
