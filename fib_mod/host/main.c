@@ -27,13 +27,16 @@
 
 /* Modified by Nuno Abreu */
 
-#include <bits/time.h>
+#include <linux/perf_event.h>
 #include <err.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
+#include <sys/ioctl.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 /* OP-TEE TEE client API (built by optee_client) */
 #include <tee_client_api.h>
@@ -41,6 +44,10 @@
 /* For the UUID (found in the TA's h-file(s)) */
 #include <fib_mod_ta.h>
 
+
+static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags){
+	return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
+}
 
 uint32_t fib_mod(uint32_t N, uint32_t k){
 
@@ -63,15 +70,38 @@ int main(void)
 	TEEC_UUID uuid = FIB_MOD_TA_UUID;
 	uint32_t err_origin;
 
-	struct timespec start, end;
-	uint32_t k = 105;
+	int fd;
+	long long count;
+	struct perf_event_attr pe;
+
+	uint32_t k=2003;
 	uint32_t r1, r2;
+
+	memset(&pe, 0, sizeof(pe));
+	pe.type = PERF_TYPE_HARDWARE;
+	pe.size = sizeof(pe);
+	pe.config = PERF_COUNT_HW_CPU_CYCLES;
+	pe.disabled = 1;
+	pe.exclude_user = 0;
+	pe.exclude_kernel = 0;
+	pe.exclude_hv = 0;
+	pe.exclude_idle = 0;
+
+	fd = perf_event_open(&pe, 0, -1, -1, 0);
+	if (fd == -1)
+		err(EXIT_FAILURE, "Error opening leader %llx\n", pe.config);
+
 
 
 	/* Initialize a context connecting us to the TEE */
 	printf("Initializing TEE\n");
 	fflush(stdout);
-	clock_gettime(CLOCK_MONOTONIC, &start);
+
+	/* Reset and start counting cycles*/
+	if (ioctl(fd, PERF_EVENT_IOC_RESET, 0) == -1)
+		err(EXIT_FAILURE, "PERF_EVENT_IOC_RESET");
+	if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) == -1)
+		err(EXIT_FAILURE, "PERF_EVENT_IOC_ENABLE");
 
 	res = TEEC_InitializeContext(NULL, &ctx);
 	if (res != TEEC_SUCCESS)
@@ -87,8 +117,13 @@ int main(void)
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
 	   res, err_origin);
 
-	clock_gettime(CLOCK_MONOTONIC, &end);
-	printf("Initialization of context finished in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+	/* Stop couting and read number */
+	if (ioctl(fd, PERF_EVENT_IOC_DISABLE, 0) == -1)
+		err(EXIT_FAILURE, "PERF_EVENT_IOC_DISABLE");
+	if (read(fd, &count, sizeof(count)) != sizeof(count))
+		err(EXIT_FAILURE, "read");
+
+	printf("Initialization of context finished in %lld cycles\n", count);
 	fflush(stdout);
 
 
@@ -96,34 +131,55 @@ int main(void)
 		printf("\n# N = %d\n", N);
 		for(int j = 0; j < 3; j++){
 
-			clock_gettime(CLOCK_MONOTONIC, &start);
-				r1 = fib_mod(N, k);
-			clock_gettime(CLOCK_MONOTONIC, &end);
+			/* Reset and start counting cycles*/
+			if (ioctl(fd, PERF_EVENT_IOC_RESET, 0) == -1)
+				err(EXIT_FAILURE, "PERF_EVENT_IOC_RESET");
+			if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) == -1)
+				err(EXIT_FAILURE, "PERF_EVENT_IOC_ENABLE");
 
-			printf("NW finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+			r1 = fib_mod(N, k);
+			/* Stop couting and read number */
+			if (ioctl(fd, PERF_EVENT_IOC_DISABLE, 0) == -1)
+				err(EXIT_FAILURE, "PERF_EVENT_IOC_DISABLE");
+			if (read(fd, &count, sizeof(count)) != sizeof(count))
+				err(EXIT_FAILURE, "read");
+
+			printf("Result NW %u\n", r1);
+
+			printf("NW finished in %lld cycles\n", count);
 			fflush(stdout);
 
-			clock_gettime(CLOCK_MONOTONIC, &start);
 
-				/* Clear the TEEC_Operation struct */
-				memset(&op, 0, sizeof(op));
+			/* Reset and start counting cycles*/
+			if (ioctl(fd, PERF_EVENT_IOC_RESET, 0) == -1)
+				err(EXIT_FAILURE, "PERF_EVENT_IOC_RESET");
+			if (ioctl(fd, PERF_EVENT_IOC_ENABLE, 0) == -1)
+				err(EXIT_FAILURE, "PERF_EVENT_IOC_ENABLE");
+			/* Clear the TEEC_Operation struct */
+			memset(&op, 0, sizeof(op));
 
-				op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT, TEEC_NONE, TEEC_NONE);
-				op.params[0].value.a = N;
-				op.params[0].value.b = k;
+			op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_VALUE_OUTPUT, TEEC_NONE, TEEC_NONE);
+			op.params[0].value.a = N;
+			op.params[0].value.b = k;
 
-				res = TEEC_InvokeCommand(&sess, FIB_MOD_CMD, &op, &err_origin);
+			res = TEEC_InvokeCommand(&sess, FIB_MOD_CMD, &op, &err_origin);
 
-				if (res != TEEC_SUCCESS){
-					printf("\n\n[PANIC]\n\n\n");
-					fflush(stdout);
-					errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x", res, err_origin);
-				}
+			if (res != TEEC_SUCCESS){
+				printf("\n\n[PANIC]\n\n\n");
+				fflush(stdout);
+				errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x", res, err_origin);
+			}
 
-				r2 = op.params[1].value.a;
+			r2 = op.params[1].value.a;
 
-			clock_gettime(CLOCK_MONOTONIC, &end);
-			printf("TA finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+			/* Stop couting and read number */
+			if (ioctl(fd, PERF_EVENT_IOC_DISABLE, 0) == -1)
+				err(EXIT_FAILURE, "PERF_EVENT_IOC_DISABLE");
+			if (read(fd, &count, sizeof(count)) != sizeof(count))
+				err(EXIT_FAILURE, "read");
+
+			printf("Result TA %u\n", r2);
+			printf("TA finished in %lld cycles\n", count);
 			if(r1 != r2) printf("Functions returned different values\n\
 								r1 = %d\n\
 								r2 = %d\n", r1, r2);

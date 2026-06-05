@@ -2,5 +2,5 @@ srcs-y += fib_mod_ta.c
 
 global-incdirs-y += include/
 
-cflags-plus_ta.c-y += -O0
+cflags-fib_mod_ta.c-y += -g -save-temps
 
