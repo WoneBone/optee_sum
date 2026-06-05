@@ -86,6 +86,10 @@ int main(void)
 	pe.exclude_kernel = 0;
 	pe.exclude_hv = 0;
 	pe.exclude_idle = 0;
+	pe.exclude_host = 0;
+	pe.exclude_guest = 0;
+	pe.exclude_callchain_kernel = 0;
+	pe.exclude_callchain_user = 0;
 
 	fd = perf_event_open(&pe, 0, -1, -1, 0);
 	if (fd == -1)
