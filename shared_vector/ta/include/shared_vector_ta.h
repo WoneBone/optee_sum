@@ -1,0 +1,10 @@
+#ifndef FIB_MOD_TA_H
+#define FIB_MOD_TA_H
+
+
+#define SHARED_VECTOR_TA_UUID {0x8f6dc312, 0x45ed, 0x4750, \
+								{0x8c, 0x6d, 0xfe, 0x12, 0x98, 0x75, 0x7c, 0xb7}}
+#define SHARED_VECTOR_CMD 0
+
+
+#endif
