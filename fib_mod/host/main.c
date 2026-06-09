@@ -29,11 +29,16 @@
 
 #include <bits/time.h>
 #include <err.h>
+#include <linux/perf_event.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <sys/ioctl.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 /* OP-TEE TEE client API (built by optee_client) */
 #include <tee_client_api.h>
@@ -54,6 +59,11 @@ uint32_t fib_mod(uint32_t N, uint32_t k){
 	return k2;
 }
 
+static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags)
+{
+    return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
+}
+
 int main(void)
 {
 	TEEC_Result res;
@@ -64,13 +74,42 @@ int main(void)
 	uint32_t err_origin;
 
 	struct timespec start, end;
-	uint32_t k = 105;
+	uint32_t k = 2003;
 	uint32_t r1, r2;
 
+	double context_ns, nw_ns, ta_ns; 
+
+	FILE *csv = fopen("times_fib.csv", "a");
+	if(!csv)
+		errx(1, "Could not open csv");
+
+	int                     perf;
+	long long               count;
+	struct perf_event_attr  pe;
+
+	/*memset(&pe, 0, sizeof(pe));
+	pe.type = PERF_TYPE_HARDWARE;
+	pe.size = sizeof(pe);
+	pe.config = PERF_COUNT_HW_CPU_CYCLES;
+	pe.disabled = 1;
+	pe.exclude_kernel = 0;
+	pe.exclude_hv = 0;
+	pe.exclude_user = 0;
+	pe.exclude_kernel = 0;
+	pe.exclude_hv = 0;
+	pe.exclude_idle = 0;
+	pe.exclude_host = 0;
+	pe.exclude_guest = 0;
+	pe.exclude_callchain_kernel = 0;
+	pe.exclude_callchain_user = 0;
+
+	perf = perf_event_open(&pe, 0, -1, -1, 0);
+	if (perf == -1)
+		err(EXIT_FAILURE, "Error opening leader %llx\n", pe.config);*/
 
 	/* Initialize a context connecting us to the TEE */
-	printf("Initializing TEE\n");
-	fflush(stdout);
+	// printf("Initializing TEE\n");
+	// fflush(stdout);
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
 	res = TEEC_InitializeContext(NULL, &ctx);
@@ -88,20 +127,23 @@ int main(void)
 	   res, err_origin);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
-	printf("Initialization of context finished in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-	fflush(stdout);
+	context_ns = (end.tv_sec - start.tv_sec)*1000000 + (end.tv_nsec - start.tv_nsec)/1000.0;
+	/*printf("Initialization of context finished in %f ns\n", context_ns);
+	fflush(stdout);*/
 
 
-	for(uint32_t N = 100, i = 0; i < 8; N *= 10, i++){
-		printf("\n# N = %d\n", N);
+	for(uint32_t N = 100; N < 10000000;  N += 250){
+		//printf("\n# N = %d\n", N);
 		for(int j = 0; j < 3; j++){
 
 			clock_gettime(CLOCK_MONOTONIC, &start);
 				r1 = fib_mod(N, k);
 			clock_gettime(CLOCK_MONOTONIC, &end);
 
-			printf("NW finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-			fflush(stdout);
+			nw_ns = (end.tv_sec - start.tv_sec)*1000000 + (end.tv_nsec - start.tv_nsec)/1000.0;
+
+			/*printf("NW finished execution in %f ns\n", nw_ns);
+			fflush(stdout);*/
 
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -123,11 +165,14 @@ int main(void)
 				r2 = op.params[1].value.a;
 
 			clock_gettime(CLOCK_MONOTONIC, &end);
-			printf("TA finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+			ta_ns = (end.tv_sec - start.tv_sec)*1000000 + (end.tv_nsec - start.tv_nsec)/1000.0;
+			//printf("TA finished execution in %f ns\n", ta_ns);
 			if(r1 != r2) printf("Functions returned different values\n\
 								r1 = %d\n\
 								r2 = %d\n", r1, r2);
-			fflush(stdout);
+			//fflush(stdout);
+
+			fprintf(csv, "%d, %f,%f,%f\n", N, context_ns, nw_ns, ta_ns);
 		}
 	}
 
@@ -142,6 +187,8 @@ int main(void)
 	TEEC_CloseSession(&sess);
 
 	TEEC_FinalizeContext(&ctx);
+
+	fclose(csv);
 
 	return 0;
 }

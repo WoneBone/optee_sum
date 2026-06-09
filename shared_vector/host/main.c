@@ -42,7 +42,7 @@
 #include <shared_vector_ta.h>
 
 
-uint32_t last_elem(uint32_t *v, size_t size){
+uint32_t last_elem(uint32_t *v, int size){
 
 	return v[size-2] + v[size-1];
 }
@@ -60,10 +60,15 @@ int main(void)
 	uint32_t *vect;
 	uint32_t r2, r1;
 
+	double context_ns, nw_ns, ta_ns; 
+
+	FILE *csv = fopen("times_vect.csv", "a");
+	if(!csv)
+		errx(1, "Could not open csv");
 
 	/* Initialize a context connecting us to the TEE */
-	printf("Initializing TEE\n");
-	fflush(stdout);
+	// printf("Initializing TEE\n");
+	//fflush(stdout);
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
 	res = TEEC_InitializeContext(NULL, &ctx);
@@ -81,22 +86,29 @@ int main(void)
 	   res, err_origin);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
-	printf("Initialization of context finished in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-	fflush(stdout);
+	context_ns = ((end.tv_sec - start.tv_sec)*1000000000LL + (end.tv_nsec - start.tv_nsec))/1000.0;
+	/*printf("Initialization of context finished in %f ns\n", context_ns);
+	fflush(stdout);*/
 
-	for(int i=3; i <= 16; i++){
-		if(!(vect = (uint32_t *)malloc(1<<i*sizeof(uint32_t))))
-			errx(4, "Could not allocate vect with size %d", 1<<i);
+	for(int i=512; i <= 131072; i+= 512){
+		if(!(vect = (uint32_t *)malloc(i*sizeof(uint32_t))))
+			errx(4, "Could not allocate vect with size %d", i);
 
-		printf("\n# Vect size = %d\n", 1<<i);
+		vect[i-1]=random();
+		vect[i-2]=random();
+
+
+		//printf("\n# Vect size = %d\n", i);
 		for(int j = 0; j < 3; j++){
 
 			clock_gettime(CLOCK_MONOTONIC, &start);
-				r1 = last_elem(vect, 1<<i);
+				r1 = last_elem(vect, i);
 			clock_gettime(CLOCK_MONOTONIC, &end);
 
-			printf("NW finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
-			fflush(stdout);
+			nw_ns = ((end.tv_sec - start.tv_sec)*1000000000LL + (end.tv_nsec - start.tv_nsec))/1000.0;
+
+			/*printf("NW finished execution in %f ns\n", nw_ns);
+			fflush(stdout);*/
 
 			clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -105,7 +117,7 @@ int main(void)
 
 				op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_VALUE_OUTPUT, TEEC_NONE, TEEC_NONE);
 				op.params[0].tmpref.buffer = vect;
-				op.params[0].tmpref.size = 1<<i;
+				op.params[0].tmpref.size = i * sizeof(uint32_t);
 
 				res = TEEC_InvokeCommand(&sess, SHARED_VECTOR_CMD, &op, &err_origin);
 
@@ -118,12 +130,16 @@ int main(void)
 				r2 = op.params[1].value.a;
 
 			clock_gettime(CLOCK_MONOTONIC, &end);
-			printf("TA finished execution in %f s\n", (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/1000000000.0);
+			ta_ns = ((end.tv_sec - start.tv_sec)*1000000000LL + (end.tv_nsec - start.tv_nsec))/1000.0;
+			//printf("TA finished execution in %f ns\n", ta_ns);
 			if(r1 != r2) printf("Functions returned different values\n\
 								r1 = %d\n\
 								r2 = %d\n", r1, r2);
-			fflush(stdout);
+			//fflush(stdout);
+
+			fprintf(csv, "%d, %f,%f,%f\n", i, context_ns, nw_ns, ta_ns);
 		}
+		free(vect);
 	}
 
 	/*
@@ -137,6 +153,8 @@ int main(void)
 	TEEC_CloseSession(&sess);
 
 	TEEC_FinalizeContext(&ctx);
+
+	fclose(csv);
 
 	return 0;
 }

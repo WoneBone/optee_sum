@@ -103,8 +103,8 @@ void TA_CloseSessionEntryPoint(void __maybe_unused *sess_ctx)
 static TEE_Result last_elem(uint32_t param_types,
 	TEE_Param params[4])
 {
-	char *v;
-	size_t size;
+	uint32_t *v;
+	int size;
 	uint64_t exp_param_types = TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
 						   TEE_PARAM_TYPE_VALUE_OUTPUT,
 						   TEE_PARAM_TYPE_NONE,
@@ -114,7 +114,7 @@ static TEE_Result last_elem(uint32_t param_types,
 		return TEE_ERROR_BAD_PARAMETERS;
 	//Interpret parameters as float
 	v = params[0].memref.buffer;
-	size = params[0].memref.size;
+	size = params[0].memref.size/sizeof(uint32_t);
 
 
 
