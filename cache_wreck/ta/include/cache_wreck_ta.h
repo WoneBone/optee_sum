@@ -1,0 +1,11 @@
+#ifndef FIB_MOD_TA_H
+#define FIB_MOD_TA_H
+
+
+#define CACHE_WRECK_TA_UUID {0x627297f7, 0x44d1, 0x4bf7, \
+								{0x95, 0xd2,  0x9a, 0x45, 0x7e, 0x44, 0x30, 0x41}}
+
+#define CACHE_WRECK_CMD 0
+
+
+#endif

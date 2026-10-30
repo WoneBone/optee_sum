@@ -1,8 +1,8 @@
 FROM ubuntu:22.04
 ARG DEBIAN_FRONTEND=noninteractive
 ENV FORCE_UNSAFE_CONFIGURE=1
-RUN apt update && apt upgrade -y
-RUN apt install -y \
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install -y \
     adb \
     acpica-tools \
     autoconf \
@@ -10,11 +10,11 @@ RUN apt install -y \
     bc \
     bison \
     build-essential \
-#   ccache \
+    ccache \
     cpio \
     cscope \
     curl \
-	device-tree-compiler \
+    device-tree-compiler \
     e2tools \
     expect \
     fastboot \
@@ -22,6 +22,7 @@ RUN apt install -y \
     ftp-upload \
     gdisk \
     git \
+    libgnutls28-dev \
     libattr1-dev \
     libcap-ng-dev \
     libfdt-dev \
@@ -59,16 +60,12 @@ RUN apt install -y \
 RUN curl https://storage.googleapis.com/git-repo-downloads/repo > /bin/repo && chmod a+x /bin/repo
 RUN mkdir /optee
 WORKDIR /optee
-RUN repo init -u https://github.com/OP-TEE/manifest.git -m zynqmp.xml && echo "starting sync" && repo sync -j10
-
-# Download from here https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/1884029195/2021.1+Release
-COPY 2021.1-zcu104-release.tar.xz 2021.1-zcu104-release.tar.xz
-
+RUN repo init -u https://github.com/OP-TEE/manifest.git -m qemu_v8.xml  && repo sync -j10
 WORKDIR /optee/build
 RUN make -j3 toolchains
-
-RUN make -j$(nproc) PLATFORM=zynqmp-zcu104 CFG_TA_GPROF_SUPPORT=y all 
-RUN make -j$(nproc) PLATFORM=zynqmp-zcu104 CFG_TA_GPROF_SUPPORT=y image
-
+RUN make -j$(nproc) check
+ENV CROSS_COMPILE=/optee/toolchains/aarch64/bin/aarch64-linux-gnu-
+ENV TA_DEV_KIT_DIR=/optee/optee_os/out/arm/export-ta_arm64
+ENV TEEC_EXPORT=/optee/out-br/build/optee_client_ext-1.0/libteec
 # Keep the container alive
 CMD ["tail", "-f", "/dev/null"]
