@@ -6,7 +6,7 @@ OBJCOPY ?= $(CROSS_COMPILE)objcopy
 OBJDUMP ?= $(CROSS_COMPILE)objdump
 READELF ?= $(CROSS_COMPILE)readelf
 
-OBJS = main.o
+OBJS =  main.o
 
 CFLAGS += -Wall -I../ta/include -I/optee/out-br/build/optee_client_ext-1.0/libteec/include -I./include -O0
 
@@ -26,4 +26,5 @@ clean:
 	rm -f $(OBJS) $(BINARY)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ -save-temps
+
